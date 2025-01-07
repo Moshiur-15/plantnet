@@ -50,6 +50,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const UserCollection = client.db('PlantNet-me').collection('users')
+    const PlantCollection = client.db('PlantNet-me').collection('Plants')
     // Generate jwt token
     app.post('/jwt', async (req, res) => {
       const email = req.body
@@ -91,6 +92,20 @@ async function run() {
         return res.send({ message: 'Email already exists' })
       }
       const result = await UserCollection.insertOne({...user, timestamp: Date.now(), role:'customer' })
+      res.send(result)
+    })
+
+    // plant collection
+    // get plant data
+    app.get('/plants', async(req, res)=>{
+      const plant = await PlantCollection.find().toArray()
+      res.send(plant)
+    })
+
+    // Create a new plant
+    app.post('/plant', verifyToken, async(req, res)=>{
+      const plant = req.body
+      const result = await PlantCollection.insertOne(plant)
       res.send(result)
     })
 
