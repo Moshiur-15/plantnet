@@ -83,17 +83,39 @@ async function run() {
 
     // user collection
     // Create a new user
-    app.post('/user/:email', async (req, res) => {
+    app.post('/users/:email', async (req, res) => {
       const email = req.params.email
       const query = { email }
-      // console.log(query)
       const user = req.body
-      const isExist = UserCollection.findOne(query)
+      const isExist = await UserCollection.findOne(query)
       if (isExist) {
         return res.send({ message: 'Email already exists' })
       }
       const result = await UserCollection.insertOne({...user, timestamp: Date.now(), role:'customer' })
       res.send(result)
+    })
+
+    app.patch('/user/:email', verifyToken, async(req, res)=>{
+      const email = req.params.email;
+      const query = {email}
+      const user = await UserCollection.findOne(query);
+      if(!user || user.status === 'Requested'){
+        return res.status(400).send({message: 'request pending'})
+      }
+      const updateDoc={
+        $set: {
+          status: 'Requested'
+        }
+      }
+      const result = await UserCollection.updateOne(query, updateDoc)
+      res.send(result)
+    })
+
+    // user role
+    app.get('/users/role/:email', verifyToken, async(req, res)=>{
+      const email = req.params.email
+      const result = await UserCollection.findOne({email})
+      res.send({role: result?.role})
     })
 
     // plant collection
@@ -185,6 +207,7 @@ async function run() {
       ]).toArray()
       res.send(result)
     })
+
     // delate orders
     app.delete('/delate/:id', verifyToken, async(req, res)=>{
       const id = req.params.id;
