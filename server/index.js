@@ -6,7 +6,7 @@ const { MongoClient, ServerApiVersion, ObjectId, Timestamp } = require('mongodb'
 const jwt = require('jsonwebtoken')
 const morgan = require('morgan')
 
-const port = process.env.PORT || 9000
+const port = process.env.PORT || 9001
 const app = express()
 // middleware
 const corsOptions = {
@@ -51,6 +51,7 @@ async function run() {
   try {
     const UserCollection = client.db('PlantNet-me').collection('users')
     const PlantCollection = client.db('PlantNet-me').collection('Plants')
+    const ordersCollection = client.db('PlantNet-me').collection('orders')
     // Generate jwt token
     app.post('/jwt', async (req, res) => {
       const email = req.body
@@ -113,9 +114,84 @@ async function run() {
     app.get('/plant/:id', async(req, res)=>{
       const id = req.params.id
       const query = {_id:new ObjectId(id)}
-      console.log(id)
       const result =await PlantCollection.findOne(query)
-      console.log(result)
+      res.send(result)
+    })
+
+    // orders collection
+    // Create a new order
+    app.post('/order', verifyToken, async(req, res)=>{
+      const orderInfo = req.body
+      const result = await ordersCollection.insertOne(orderInfo)
+      res.send(result)
+    })
+
+    app.patch('/order/quantity/:id', verifyToken, async (req, res)=>{
+      const id = req.params.id
+      const {updateTotalQuantity, status} = req.body;
+      const filter = { _id: new ObjectId(id) }
+      let updateDoc={
+        $inc:{
+          quantity: -updateTotalQuantity
+        }
+      }
+      if (status === 'increase'){
+        updateDoc={
+          $inc:{
+            quantity: updateTotalQuantity
+          }
+        }
+      }
+      const result = await PlantCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
+    // get all orders for a specific customer
+    app.get('/my-orders/:email', verifyToken, async(req, res)=>{
+      const email = req.params.email
+      const query = {'customer.email':email}
+      const result = await ordersCollection.aggregate([
+        {
+          $match:query
+        },
+        {
+          $addFields:{Plant_id:{
+            $toObjectId:'$Plant_id'
+          }}
+        },
+        {
+          $lookup:{
+            from: 'Plants',
+            localField: 'Plant_id',
+            foreignField: '_id',
+            as: 'Plants'
+          }
+        },
+        {
+          $unwind: '$Plants',
+        },
+        {
+          $addFields:{
+            name: '$Plants.name',
+            image: '$Plants.image',
+            category: '$Plants.category',
+          }
+        },
+        {
+          $project:{
+            Plants:0,
+          } 
+        }
+      ]).toArray()
+      res.send(result)
+    })
+    // delate orders
+    app.delete('/delate/:id', verifyToken, async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id:new ObjectId(id)};
+      const order = await ordersCollection.findOne(query);
+      if(order.status === 'Delivered')return res.status(409).send('Cannot cancel product is delivered!');
+      const result = await ordersCollection.deleteOne(query);
       res.send(result)
     })
 

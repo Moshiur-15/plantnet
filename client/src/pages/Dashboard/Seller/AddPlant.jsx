@@ -18,18 +18,18 @@ const AddPlant = () => {
     const name = form.name.value;
     const category = form.category.value;
     const description = form.description.value;
-    const price = form.price.value;
-    const quantity = form.quantity.value;
+    const price = parseInt(form.price.value);
+    const quantity = parseInt(form.quantity.value);
     const image = form.image.files[0];
     const imgData = await imgUpload(image);
-    const buyer = {
+    const seller = {
       name: user?.displayName,
       email: user?.email,
       image: user?.photoURL,
     };
     const plantData = {
       image: imgData,
-      buyer,
+      seller,
       name,
       category,
       description,
