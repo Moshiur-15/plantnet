@@ -52,6 +52,27 @@ async function run() {
     const UserCollection = client.db('PlantNet-me').collection('users')
     const PlantCollection = client.db('PlantNet-me').collection('Plants')
     const ordersCollection = client.db('PlantNet-me').collection('orders')
+    
+    // verified admin 
+    const verifiedAdmin = async (req, res, next)=>{
+      const email = req.user?.email;
+      const query = {email}
+      const result = await UserCollection.findOne(query)
+      if(!result || result?.role !== 'admin'){
+        return res.status(401).send({message: 'unauthorized access'})
+      }
+      next() 
+    }
+    // verified seller 
+    const verifiedSeller = async (req, res, next)=>{
+      const email = req.user?.email;
+      const query = {email}
+      const result = await UserCollection.findOne(query)
+      if(!result || result.role !== 'seller')return res.status(401).send({message: 'unauthorized access'})
+      next()
+    }
+    
+    
     // Generate jwt token
     app.post('/jwt', async (req, res) => {
       const email = req.body
@@ -118,6 +139,25 @@ async function run() {
       res.send({role: result?.role})
     })
 
+    app.get('/users/:email',verifyToken,verifiedAdmin, async (req, res) => {
+      const email = req.params.email
+      const query = {email: { $ne: email }};
+      const result = await UserCollection.find(query).toArray()
+      res.send(result)
+    })
+
+    // update a user role and status
+    app.patch('/user/role/:email', verifyToken, verifiedAdmin, async(req, res)=>{
+      const email = req.params.email
+      const {role} = req.body;
+      const filter = { email } 
+      const updateDoc = {
+        $set: { role, status: 'Verified' }
+      }
+      const result = await UserCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
     // plant collection
     // get plant data
     app.get('/plants', async(req, res)=>{
@@ -126,7 +166,7 @@ async function run() {
     })
 
     // Create a new plant
-    app.post('/plant', verifyToken, async(req, res)=>{
+    app.post('/plant', verifyToken,verifiedSeller, async(req, res)=>{
       const plant = req.body
       const result = await PlantCollection.insertOne(plant)
       res.send(result)
