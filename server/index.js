@@ -2,11 +2,9 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
-const { MongoClient, ServerApiVersion, ObjectId, Timestamp } = require('mongodb')
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb')
 const jwt = require('jsonwebtoken')
 const morgan = require('morgan')
-const nodemailer = require("nodemailer");
-
 const port = process.env.PORT || 9001
 const app = express()
 // middleware
@@ -72,7 +70,6 @@ async function run() {
       if(!result || result.role !== 'seller')return res.status(401).send({message: 'unauthorized access'})
       next()
     }
-    
     
     // Generate jwt token
     app.post('/jwt', async (req, res) => {
@@ -326,6 +323,54 @@ async function run() {
       res.send(result)
     })
 
+    // admin related 
+    // get all orders
+    app.get('/admin-stat', verifyToken, verifiedAdmin, async(req, res)=>{
+      const totalUser = await UserCollection.estimatedDocumentCount()
+      const  totalPlants = await PlantCollection.estimatedDocumentCount()
+      const chartData =await ordersCollection.aggregate([
+        {
+          $group:{
+            _id: {
+              $dateToString:{
+                format: "%Y-%m-%d",
+                date:{$toDate:'$_id'}
+              }
+            },
+            quantity:{$sum: '$quantity'},
+            price: {$sum : '$price'},
+            orders: {$sum: 1}
+          }
+        },
+        {
+          $project:{
+            _id: 0,
+            date: '$_id',
+            quantity: 1,
+            orders: 1,
+            price: 1,
+          }
+        }
+      ]).next()
+      const allOrders =await ordersCollection.aggregate([
+        {
+          $group:
+          {
+            _id: null,
+            totalPrice: {$sum : '$price'},
+            totalOrder: {$sum: 1}
+          }
+        },
+        {
+          $project:{
+            _id:0,
+          }
+        }
+      ]).next()
+      // const totalPrice = allOrders.reduce((sum, order)=>sum+order.price,0)
+      // const totalOrders = allOrders.length
+      res.send({totalPlants, totalUser, ...allOrders, chartData})
+    })
 
     // Send a ping to confirm a successful connection
     // await client.db('admin').command({ ping: 1 })
