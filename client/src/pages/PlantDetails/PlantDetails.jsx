@@ -8,11 +8,19 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import LoadingSpinner from "../../components/Shared/LoadingSpinner";
+import useRole from "../../hooks/useRole";
+import useAuth from "../../hooks/useAuth";
 
 const PlantDetails = () => {
   let [isOpen, setIsOpen] = useState(false);
+  const [role] = useRole();
+  const { user } = useAuth();
   const { id } = useParams();
-  const { data: plant = [], isLoading, refetch } = useQuery({
+  const {
+    data: plant = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["plant", id],
     queryFn: async () => {
       const { data } = await axios(
@@ -24,9 +32,9 @@ const PlantDetails = () => {
   if (isLoading) return <LoadingSpinner />;
   const { name, category, image, description, price, quantity, _id, seller } =
     plant || [];
-    console.log(plant)
+  console.log(plant);
   const closeModal = () => {
-   setIsOpen(false)
+    setIsOpen(false);
   };
 
   return (
@@ -45,10 +53,7 @@ const PlantDetails = () => {
         </div>
         <div className="md:gap-10 flex-1">
           {/* Plant Info */}
-          <Heading
-            title={`${name}`}
-            subtitle={`Category: ${category}`}
-          />
+          <Heading title={`${name}`} subtitle={`Category: ${category}`} />
           <hr className="my-6" />
           <div
             className="
@@ -94,11 +99,28 @@ const PlantDetails = () => {
           <div className="flex justify-between">
             <p className="font-bold text-3xl text-gray-500">Price: {price}$</p>
             <div>
-              <Button onClick={()=>setIsOpen(true)} label={`${quantity > 0 ? "Purchase" :' Out Of Stock' }`} />
+              <Button
+                disabled={
+                  !user 
+                  ||
+                  user?.email === seller?.email 
+                  ||
+                  role !== "customer" 
+                  ||
+                  quantity === 0
+                }
+                onClick={() => setIsOpen(true)}
+                label={`${quantity > 0 ? "Purchase" : " Out Of Stock"}`}
+              />
             </div>
           </div>
           <hr className="my-6" />
-          <PurchaseModal refetch={refetch} plant={plant} closeModal={closeModal} isOpen={isOpen} />
+          <PurchaseModal
+            refetch={refetch}
+            plant={plant}
+            closeModal={closeModal}
+            isOpen={isOpen}
+          />
         </div>
       </div>
     </Container>

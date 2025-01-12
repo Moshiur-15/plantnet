@@ -1,4 +1,5 @@
 import { TbFidgetSpinner } from "react-icons/tb";
+import { sortImgName } from "../../utilities";
 
 const AddPlantForm = ({
   handleFrom,
@@ -108,7 +109,7 @@ const AddPlantForm = ({
                       hidden
                     />
                     <div className="bg-lime-500 text-white border border-gray-300 rounded font-semibold cursor-pointer p-1 px-3 hover:bg-lime-500">
-                      {uploadBtnText?.img?.name}
+                      {sortImgName(uploadBtnText?.img)}
                     </div>
                   </label>
                 </div>

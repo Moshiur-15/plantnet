@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser')
 const { MongoClient, ServerApiVersion, ObjectId, Timestamp } = require('mongodb')
 const jwt = require('jsonwebtoken')
 const morgan = require('morgan')
+const nodemailer = require("nodemailer");
 
 const port = process.env.PORT || 9001
 const app = express()
@@ -180,6 +181,23 @@ async function run() {
       res.send(result)
     })
 
+    // get seller add plant 
+    app.get('/plants/seller',verifyToken, verifiedSeller, async (req,res)=>{
+      const email = req.user.email;
+      console.log(email)
+      const query = {'seller.email':email}
+      const result = await PlantCollection.find(query).toArray()
+      res.send(result)
+    })
+
+    // delate seller add plant 
+    app.delete('/seller/plant/delate/:id',verifyToken, verifiedSeller, async (req,res)=>{
+      const id = req.params.id
+      const query = {_id: new ObjectId(id)}
+      const result = await PlantCollection.deleteOne(query)
+      res.send(result)
+    })
+
     // orders collection
     // Create a new order
     app.post('/order', verifyToken, async(req, res)=>{
@@ -205,6 +223,44 @@ async function run() {
         }
       }
       const result = await PlantCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
+    // get all orders for a specific seller
+    app.get('/seller-order/:email', verifyToken, verifiedSeller, async(req, res)=>{
+      const email = req.params.email
+      const query = {seller:email}
+      const result = await ordersCollection.aggregate([
+        {
+          $match:query
+        },
+        {
+          $addFields:{Plant_id:{
+            $toObjectId:'$Plant_id'
+          }}
+        },
+        {
+          $lookup:{
+            from: 'Plants',
+            localField: 'Plant_id',
+            foreignField: '_id',
+            as: 'Plants'
+          }
+        },
+        {
+          $unwind: '$Plants',
+        },
+        {
+          $addFields:{
+            name: '$Plants.name',
+          }
+        },
+        {
+          $project:{
+            Plants:0,
+          } 
+        }
+      ]).toArray()
       res.send(result)
     })
 
@@ -257,6 +313,19 @@ async function run() {
       const result = await ordersCollection.deleteOne(query);
       res.send(result)
     })
+
+    // update a order status
+    app.patch('/order/status/:id', verifyToken, verifiedSeller, async(req, res)=>{
+      const id = req.params.id
+      const {status} = req.body;
+      const filter = { _id: new ObjectId(id) } 
+      const updateDoc = {
+        $set: { status }
+      }
+      const result = await ordersCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    })
+
 
     // Send a ping to confirm a successful connection
     // await client.db('admin').command({ ping: 1 })
